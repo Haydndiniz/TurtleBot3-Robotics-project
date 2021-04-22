@@ -13,6 +13,7 @@ def callback(dt):
 
 move = Twist()
 pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
+rospy.init_node('task1_node')
 sub = rospy.Subscriber("/scan", LaserScan, callback)
 
 rospy.spin() # Loops infinitely until someone stops the program execution
