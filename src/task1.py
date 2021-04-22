@@ -19,6 +19,7 @@ def callback(dt):
 
     pub.publish(move)
 
+# hi this is a test run for pushing to the remote repository (Marvelous Jibogu)
 
 move = Twist()
 pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
