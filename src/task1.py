@@ -31,7 +31,7 @@ def wander_controller_move():
 	
 		delta = l_dist - r_dist
 		
-		if min(f_l_dist, f_r_dist) < 3.5: # obstacle ahread
+		if min(f_l_dist, f_r_dist) < 3.5: # obstacle ahead
 			print ("f_l_dist: %.2f f_r_dist: %.2f delta: %.2f" %(f_l_dist,f_r_dist,delta))
 			approach  = f_l_dist - f_r_dist
 			
