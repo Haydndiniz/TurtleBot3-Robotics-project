@@ -35,6 +35,7 @@ class ActionServer(object):
         # init twist params
         # Distance in m
         self.front_distance = 0.0
+        self.front_wide_distance = 0.0
         self.right_distance = 0.0
         self.left_distance = 0.0
         self.back_distance = 0.0
@@ -43,11 +44,11 @@ class ActionServer(object):
 
         # angles in rad/s
         self.front_angle = 0.0
+        self.front_wide_angle = 0.0
         self.right_angle = 0.0
         self.left_angle = 0.0
         self.back_angle = 0.0
       
-
         # Initial start time 
         self.startTime = rospy.get_rostime()
         print(self.startTime.secs)
@@ -66,16 +67,23 @@ class ActionServer(object):
         # Set distance to closest front obstacle(front 180 degrees)
         self.front_round_distance = front_round_arc.min()
 
-        # front obstacles, 32 degrees (15 left, 15 right)
+        # front obstacles, 30 degrees (15 left, 15 right)
         front_left_arc = scan_data.ranges[0:15]
         front_right_arc = scan_data.ranges[-15:]
         front_arc = np.array(front_left_arc[::-1] + front_right_arc[::-1])
         front_arc_angle = np.arange(-15, 15)
-
         # Set distance and bearing of closest obstacle in front of bot
         self.front_distance = front_arc.min()
         self.front_angle = front_arc_angle[np.argmin(front_arc)]
 
+        # front obstacles, 90 degrees (15 left, 15 right)
+        front_left_arc = scan_data.ranges[0:30]
+        front_right_arc = scan_data.ranges[-30:]
+        front_arc = np.array(front_left_arc[::-1] + front_right_arc[::-1])
+        front_arc_angle = np.arange(-30, 30)
+        # Set distance and bearing of closest obstacle in front of bot
+        self.front_wide_distance = front_arc.min()
+        self.front_wide_angle = front_arc_angle[np.argmin(front_arc)]
         
         # Right obstacles, 30 degrees 
         right_arc = scan_data.ranges[316:346]
@@ -115,7 +123,17 @@ class ActionServer(object):
             success = False
             go = False
             sys.exit()
-    
+
+    def can_turn(self):
+        if self.front_round_distance <= 0.2:
+            print("No space in front, moving...")
+           
+        elif self.back_round_distance <= 0.2:
+            print("No space in back, moving...")
+        else
+         go:
+          
+
     def action_server_launcher(self, goal):
         success = True
         x = (math.sqrt((self.robot_odom.posx - self.x0)**2 + (self.robot_odom.posy- self.y0)**2))
@@ -124,16 +142,16 @@ class ActionServer(object):
         if goal.fwd_velocity <= 0 or goal.fwd_velocity >= 5:
             success = False
             print("Invalid velocity.  Select a value between 0 and 0.4 m/s.")
-        if goal.approach_distance <= 0.11 or goal.approach_distance > 0.7:
+        if goal.approach_distance <= 0.11 or goal.approach_distance > 0.9:
             success = False
-            print("Invalid approach distance: Select a value between 0.12 and 0.7")
+            print("Invalid approach distance: Select a value between 0.12 and 0.9")
 
         if not success:
             self.actionserver.set_aborted()
             return
 
         # set minimum distance
-        min_d = 0.14
+        min_d = 0.2
 
         go = True
         while go:
@@ -142,31 +160,32 @@ class ActionServer(object):
             if self.front_distance > goal.approach_distance and self.left_distance > goal.approach_distance and self.right_distance > goal.approach_distance:
                 # Turn left if disance to obstacle on left is greater
                 if self.left_distance > self.right_distance:
-                    self.robot_controller.set_move_cmd(0.5, 1)
+                    self.robot_controller.set_move_cmd(0.4, 1) # (velocity, rad/s)
                     self.robot_controller.publish()
                     self.collision_detect(min_d)
                 # Turn right if disance to obstacle on right is greater
                 elif self.left_distance < self.right_distance:
-                    self.robot_controller.set_move_cmd(0.5, -1)#
+                    self.robot_controller.set_move_cmd(0.4, -1)
                     self.robot_controller.publish()
                     self.collision_detect(min_d)
                 # populate the feedback message and publish it:
                 self.feedback.current_distance_travelled = (math.sqrt((self.robot_odom.posx - self.x0)**2 + (self.robot_odom.posy- self.y0)**2))
                 self.actionserver.publish_feedback(self.feedback)
                 self.collision_detect(min_d)
+           
             # obstacle within min goal distance(defined in action client), so turn left or right
             elif self.front_distance < goal.approach_distance and self.left_distance > goal.approach_distance and self.right_distance > goal.approach_distance: 
                 # Turn left if disance to obstacle on left is greater
                 if self.left_distance > self.right_distance:
                     self.robot_controller.stop()
-                    self.robot_controller.set_move_cmd(0.1, 2)#
+                    self.robot_controller.set_move_cmd(0.1, 2)
                     self.robot_controller.publish()
                     self.collision_detect(min_d)
                     print("----Turning Left")
                 # Turn right if disance to obstacle on right is greater
                 elif self.left_distance < self.right_distance:
                     self.robot_controller.stop()
-                    self.robot_controller.set_move_cmd(0.1, -2)#
+                    self.robot_controller.set_move_cmd(0.1, -2)
                     self.robot_controller.publish()
                     self.collision_detect(min_d)
                     print("----Turning right")
@@ -176,7 +195,7 @@ class ActionServer(object):
             # there is space infront, but obstacles on the left and right, move forward
             elif self.front_distance > goal.approach_distance and self.left_distance < goal.approach_distance and self.right_distance < goal.approach_distance:
                 self.robot_controller.stop()
-                self.robot_controller.set_move_cmd(0.5, 0)#
+                self.robot_controller.set_move_cmd(0.4, 0)
                 self.robot_controller.publish()
                 self.feedback.current_distance_travelled = (math.sqrt((self.robot_odom.posx - self.x0)**2 + (self.robot_odom.posy- self.y0)**2))
                 self.actionserver.publish_feedback(self.feedback)
@@ -184,21 +203,19 @@ class ActionServer(object):
                 print("----Move forward, obstacles left and right")
             # obstacle on right, so turn left
             elif self.front_distance > goal.approach_distance and self.left_distance > goal.approach_distance and self.right_distance < goal.approach_distance:
-                #self.robot_controller.set_move_cmd(-1, 0)
-                #self.robot_controller.publish()
                 self.robot_controller.stop()
-                self.robot_controller.set_move_cmd(0.3, 0.4)
+                self.robot_controller.set_move_cmd(0.4, 0.1)
                 self.robot_controller.publish()
                 self.feedback.current_distance_travelled = (math.sqrt((self.robot_odom.posx - self.x0)**2 + (self.robot_odom.posy- self.y0)**2))
                 self.actionserver.publish_feedback(self.feedback)
                 self.collision_detect(min_d)
-                print("----turn right and move forward")
+                print("----turn left and move forward")
            # obstacle on left, so turn right
             elif self.front_distance > goal.approach_distance and self.left_distance < goal.approach_distance and self.right_distance > goal.approach_distance:
                 #self.robot_controller.set_move_cmd(-1, 0)
                 #self.robot_controller.publish()
                 self.robot_controller.stop()
-                self.robot_controller.set_move_cmd(0.3, -0.4)
+                self.robot_controller.set_move_cmd(0.4, -0.1)
                 self.robot_controller.publish()
                 self.collision_detect(min_d)
                 print("----turn right and move forward")
@@ -223,17 +240,17 @@ class ActionServer(object):
                 # stop, move back slowly, then turn around to the left
                 if self.left_distance > self.right_distance:
                     self.robot_controller.stop()
-                    self.robot_controller.set_move_cmd(-0.5, 0)
+                    self.robot_controller.set_move_cmd(-0.4, 0)
                     self.robot_controller.publish()
-                    self.robot_controller.set_move_cmd(0, 2)#
+                    self.robot_controller.set_move_cmd(0, 2)
                     self.robot_controller.publish()
                     self.collision_detect(min_d)
                 # stop, move back slowly, then turn around to the right
                 elif self.left_distance < self.right_distance:
                     self.robot_controller.stop()
-                    self.robot_controller.set_move_cmd(-0.5, 0)
+                    self.robot_controller.set_move_cmd(-0.4, 0)
                     self.robot_controller.publish()
-                    self.robot_controller.set_move_cmd(0, -2)#
+                    self.robot_controller.set_move_cmd(0, -2)
                     self.robot_controller.publish() 
                     self.collision_detect(min_d)
                 # populate the feedback message and publish it:
