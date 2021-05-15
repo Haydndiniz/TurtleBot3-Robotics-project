@@ -8,7 +8,8 @@ from geometry_msgs.msg import Twist
 class task4:
     
     def __init__(self):
-        self.kp = 0.5
+        self.kp = 0.6
+        self.kpl = 0.4
         self.ki = 1/50
         self.kd = 1/50
         self.linear_vel = 0.25
@@ -26,7 +27,7 @@ class task4:
 
         rospy.init_node('task4_node')
 
-        self.rate = rospy.Rate(5)
+        self.rate = rospy.Rate(20)
 
         self.ctrl_c = False
         rospy.on_shutdown(self.shutdownhook)
@@ -41,31 +42,44 @@ class task4:
         # publish an empty twist message to stop the robot (by default all 
         # velocities within this will be zero):
         print("stopping task4 node at: {}".format(rospy.get_time()))
-        self.pub.publish(Twist())
+        self.move.linear.x = 0
+        self.move.angular.z = 0
+        self.pub.publish(self.move)
 
     def callback(self, dt):
         scan_data = np.array(dt.ranges)
-        self.distance_left = scan_data[90]
-        self.distance_right = scan_data[270]
-        arc_front_left = scan_data[:15]
-        arc_front_right = scan_data[345:]
+        arc_distance_left = scan_data[70:110]
+        arc_distance_right = scan_data[250:290]
+        arc_front_left = scan_data[:30]
+        arc_front_right = scan_data[330:]
         front_arc = np.concatenate((arc_front_right, arc_front_left))
         self.min_distance_front = front_arc.min()
+        self.distance_left = arc_distance_left.min()
+        self.distance_right = arc_distance_right.min()
 
     def main_loop(self):
         while not self.ctrl_c:
 
             self.start = rospy.get_time()
 
-            self.error = self.distance_left - self.distance_right
+            self.error = self.distance_right - 0.3
+
+            self.lerror = self.min_distance_front - 0.2
 
             #self.integral = self.integral + self.error
 
             #self.derivative = self.error - self.last_error
 
-            self.move.angular.z = self.kp*self.error 
-            self.move.linear.x = self.linear_vel
+            if self.kp*self.error <= 0.6:
+                self.move.angular.z = self.kp*self.error
+            elif self.kp*self.error >= -0.6:
+                self.move.angular.z = self.kp*self.error
+            elif self.kp*self.error > 0.6:
+                self.move.angular.z = 0.6
+            elif self.kp*self.error < -0.6:
+                self.move.angular.z = -0.6
 
+            self.move.linear.x = self.linear_vel
             self.last_error = self.error
 
             self.end = rospy.get_time()
@@ -73,22 +87,24 @@ class task4:
 
             self.pub.publish(self.move)
 
-            if self.min_distance_front <= 0.5:
-                self.move.linear.x = 0.1
+            if self.min_distance_front <= 0.4:
+                self.move.linear.x = 0.05
                 self.move.angular.z = 0
                 self.pub.publish(self.move)
                 if self.distance_left > self.distance_right:
-                    while self.min_distance_front <= 0.5:
+                    while self.min_distance_front <= 0.4:
                         self.move.angular.z = 0.6
                         self.pub.publish(self.move)
                     self.move.angular.z = 0
                     self.pub.publish(self.move)
                 elif self.distance_right > self.distance_left:
-                    while self.min_distance_front <= 0.5:
+                    while self.min_distance_front <= 0.4:
                         self.move.angular.z = -0.6
                         self.pub.publish(self.move)
                     self.move.angular.z = 0
                     self.pub.publish(self.move)
+
+            self.rate.sleep()
 
 
 if __name__ == '__main__':
