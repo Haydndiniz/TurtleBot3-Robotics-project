@@ -30,11 +30,13 @@ import time
 # is a "quaternion" defining an orientation. Quaternions are a different
 # mathematical represetnation for "euler angles", yaw, pitch and roll.
 
-waypoints = [[(1, -1.5, 0.0), (0.0, 0.0, -0.2923, 0.9563)],
-            [(0, -0.7, 0.0), (0.0, 0.0, 0.7300, 0.68339)],
-            [(-1, -0.4, 0.0), (0.0, 0.0, -0.99967,  0.0255)],
-            [(0.25, 1.4, 0.0), (0.0, 0.0, 0.45269, -0.8916)],
-            [(0.5, 1.88, 0.0), (0.0, 0.0, -0.98216, -0.1880)]]
+waypoints = [[(0.25, 1.4, 0.0), (0.0, 0.0, 0.45269, -0.8916)]]
+
+# [[(1, -1.5, 0.0), (0.0, 0.0, -0.2923, 0.9563)],
+#             [(0, -0.7, 0.0), (0.0, 0.0, 0.7300, 0.68339)],
+#             [(-1, -0.4, 0.0), (0.0, 0.0, -0.99967,  0.0255)],
+#             [(0.25, 1.4, 0.0), (0.0, 0.0, 0.45269, -0.8916)],
+#             [(0.5, 1.88, 0.0), (0.0, 0.0, -0.98216, -0.1880)]]
 
 
 class search_and_beacon(object):
@@ -134,7 +136,7 @@ class search_and_beacon(object):
 
         (height, width, channels) = cv_img.shape
         crop_width = width - 800
-        crop_height = 400
+        crop_height = 200
         crop_x = int(width / 2 - crop_width / 2)
         crop_y = int(height / 2 - crop_height / 2)
 
@@ -170,7 +172,7 @@ class search_and_beacon(object):
                 self.upper_bound = upper_bound
                 self.rotate(90, -0.3)
                 print 'SEARCH INITIATED: The target colour is {}'.format(self.target_colour)
-                break
+                return
 
     def rotate(self, deg, speed):
         rospy.sleep(1)
@@ -183,9 +185,7 @@ class search_and_beacon(object):
 
     def check_colour(self):
         if self.m00 > self.m00_min and self.find_target == False:
-
             # blob detected
-
             if self.cy >= 560 - 100 and self.cy <= 560 + 100:
                 if self.move_rate == 'slow':
                     self.move_rate = 'stop'
@@ -196,7 +196,6 @@ class search_and_beacon(object):
             elif self.find_target == True:
                 self.robot_controller.stop()
             else:
-
                 self.move_rate = 'fast'
 
             if self.find_target == False:
@@ -214,21 +213,25 @@ class search_and_beacon(object):
             self.robot_controller.publish()
             self.rate.sleep()
 
-    def move_towards():
-        while 
-         self.robot_controller.set_move_cmd(0.0,
-                            self.turn_vel_slow)
+    def move_towards(self):
+        while self.front_distance > 0.3:
+            self.robot_controller.set_move_cmd(0.2, 0.0)
+        print("stopped")
 
     def main(self):
-        self.mb_client.wait_for_server()
-        self.set_initial_pose()
-        # self.get_colour()
-        for pose in waypoints:
-            goal = self.go_to_waypoint(pose)
-            print("Going for goal: ", goal)
-            self.mb_client.send_goal(goal)
-            self.mb_client.wait_for_result()
-            # self.check_colour
+        while not self.ctrl_c:
+            
+            # self.mb_client.wait_for_server()
+            # self.set_initial_pose()
+            # self.get_colour()
+            # for pose in waypoints:
+            #     goal = self.go_to_waypoint(pose)
+            #     print("next waypoint")
+            #     self.mb_client.send_goal(goal)
+            #     self.mb_client.wait_for_result()
+            #     self.check_colour
+            #     print(self.find_target)
+            # break       # self.move_towards()
 
 if __name__ == '__main__':
     search_ob = search_and_beacon()
