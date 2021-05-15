@@ -94,7 +94,7 @@ class colour_search(object):
         cv2.waitKey(1)
 
     def get_colour(self):
-        self.rotate(180, 0.3)
+        self.rotate(90, 0.3)
         for colour, (lower, upper) in self.colours.items():
             lower_bound = np.array(lower)
             upper_bound = np.array(upper)
@@ -103,7 +103,7 @@ class colour_search(object):
                 self.target_colour = colour
                 self.lower_bound = lower_bound
                 self.upper_bound = upper_bound
-                self.rotate(180, -0.3)
+                self.rotate(90, -0.3)
                 print("SEARCH INITIATED: The target colour is {}".format (self.target_colour))
                 break        
 

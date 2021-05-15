@@ -219,19 +219,21 @@ class search_and_beacon(object):
         print("stopped")
 
     def main(self):
-        while not self.ctrl_c:
+        self.mb_client.wait_for_server()
+        self.set_initial_pose()
+        self.get_colour()
+        while not self.ctrl_c and (self.find_target == False):
+            for pose in waypoints:
+                goal = self.go_to_waypoint(pose)
+                print("next waypoint")
+                self.mb_client.send_goal(goal)
+                self.mb_client.wait_for_result()
+                self.check_colour()
+                print(self.find_target)
+                if self.find_target == True:
+                    break    
             
-            # self.mb_client.wait_for_server()
-            # self.set_initial_pose()
-            # self.get_colour()
-            # for pose in waypoints:
-            #     goal = self.go_to_waypoint(pose)
-            #     print("next waypoint")
-            #     self.mb_client.send_goal(goal)
-            #     self.mb_client.wait_for_result()
-            #     self.check_colour
-            #     print(self.find_target)
-            # break       # self.move_towards()
+        print("ending")
 
 if __name__ == '__main__':
     search_ob = search_and_beacon()
