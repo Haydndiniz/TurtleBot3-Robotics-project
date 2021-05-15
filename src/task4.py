@@ -1,29 +1,31 @@
 #! /usr/bin/python
 
 import rospy
+import actionlib
 import numpy as np
 from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from geometry_msgs.msg import PoseWithCovarianceStamped
+from tf.transformations import quaternion_from_euler
+
+goal = [(1.90040443106, 1.94064598664, 0.0), (0.0, 0.0, -0.999993175507, 0.00333086304911)]
 
 class task4:
     
     def __init__(self):
-        self.kp = 0.6
-        self.kpl = 0.4
-        self.ki = 1/50
-        self.kd = 1/50
-        self.linear_vel = 0.25
-        self.integral = 0
-        self.last_error = 0
-        self.derivative = 0
-        self.dt = 0.01
-        self.move = Twist()
-        self.distance_left = 0
-        self.distance_right = 0
-        self.min_distance_front = 0
+
+        self.ctrl_c = False
+        rospy.on_shutdown(self.shutdownhook)
+        self.mb_client = actionlib.SimpleActionClient('move_base',
+                MoveBaseAction)
+
+        self.mb_pub = rospy.Publisher('/initialpose',
+                PoseWithCovarianceStamped, queue_size=10)
+
+        self.goal_pose = MoveBaseGoal()
 
         self.pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
-        self.sub = rospy.Subscriber("/scan", LaserScan, self.callback)
 
         rospy.init_node('task4_node')
 
@@ -57,55 +59,37 @@ class task4:
         self.distance_left = arc_distance_left.min()
         self.distance_right = arc_distance_right.min()
 
+    """def set_initial_pose(self):
+        checkpoint = PoseWithCovarianceStamped()
+        checkpoint.pose.pose.position.x = -2.088
+        checkpoint.pose.pose.position.y = -2.027
+        checkpoint.pose.pose.position.z = 0.0
+        [x, y, z, w] = quaternion_from_euler(0.0, 0.0, 1.572)
+        checkpoint.pose.pose.orientation.x = x
+        checkpoint.pose.pose.orientation.y = y
+        checkpoint.pose.pose.orientation.z = z
+        checkpoint.pose.pose.orientation.w = w
+        self.mb_pub.publish(checkpoint)"""
+
+    def go_to_waypoint(self, pose):
+        self.goal_pose.target_pose.header.frame_id = 'map'
+        self.goal_pose.target_pose.pose.position.x = pose[0][0]
+        self.goal_pose.target_pose.pose.position.y = pose[0][1]
+        self.goal_pose.target_pose.pose.position.z = pose[0][2]
+        self.goal_pose.target_pose.pose.orientation.x = pose[1][0]
+        self.goal_pose.target_pose.pose.orientation.y = pose[1][1]
+        self.goal_pose.target_pose.pose.orientation.z = pose[1][2]
+        self.goal_pose.target_pose.pose.orientation.w = pose[1][3]
+        return self.goal_pose
+
     def main_loop(self):
         while not self.ctrl_c:
-
-            self.start = rospy.get_time()
-
-            self.error = self.distance_right - 0.3
-
-            self.lerror = self.min_distance_front - 0.2
-
-            #self.integral = self.integral + self.error
-
-            #self.derivative = self.error - self.last_error
-
-            if self.kp*self.error <= 0.6:
-                self.move.angular.z = self.kp*self.error
-            elif self.kp*self.error >= -0.6:
-                self.move.angular.z = self.kp*self.error
-            elif self.kp*self.error > 0.6:
-                self.move.angular.z = 0.6
-            elif self.kp*self.error < -0.6:
-                self.move.angular.z = -0.6
-
-            self.move.linear.x = self.linear_vel
-            self.last_error = self.error
-
-            self.end = rospy.get_time()
-            self.dt = self.start - self.end
-
-            self.pub.publish(self.move)
-
-            if self.min_distance_front <= 0.4:
-                self.move.linear.x = 0.05
-                self.move.angular.z = 0
-                self.pub.publish(self.move)
-                if self.distance_left > self.distance_right:
-                    while self.min_distance_front <= 0.4:
-                        self.move.angular.z = 0.6
-                        self.pub.publish(self.move)
-                    self.move.angular.z = 0
-                    self.pub.publish(self.move)
-                elif self.distance_right > self.distance_left:
-                    while self.min_distance_front <= 0.4:
-                        self.move.angular.z = -0.6
-                        self.pub.publish(self.move)
-                    self.move.angular.z = 0
-                    self.pub.publish(self.move)
-
-            self.rate.sleep()
-
+            self.mb_client.wait_for_server()
+            #self.set_initial_pose()
+            the_goal = self.go_to_waypoint(goal)
+            print("Going for goal: ", the_goal)
+            self.mb_client.send_goal(the_goal)
+            self.mb_client.wait_for_result()
 
 if __name__ == '__main__':
     task4_instance = task4()
