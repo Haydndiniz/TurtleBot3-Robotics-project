@@ -1,0 +1,4 @@
+<launch>
+    <node name="detect_colour" pkg="team25" type="task2.py" output="screen">
+    </node>
+</launch>
