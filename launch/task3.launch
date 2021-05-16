@@ -3,7 +3,7 @@
     <!-- Arguments -->
     <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
     <arg name="map_file" value="$(find team25)/maps/beaconing_map.yaml"/>
-    <arg name="open_rviz" default="true"/>
+    <arg name="open_rviz" default="false"/>
     <arg name="move_forward_only" default="false"/>
 
     <!-- Turtlebot3 -->
@@ -30,4 +30,7 @@
         <node pkg="rviz" type="rviz" name="rviz" required="true"
             args="-d $(find turtlebot3_navigation)/rviz/turtlebot3_navigation.rviz"/>
     </group>
+
+    <!-- Task 3 -->
+    <node name="search_and_beacon" pkg="team25" type="task3.py" output="screen"/>
 </launch>

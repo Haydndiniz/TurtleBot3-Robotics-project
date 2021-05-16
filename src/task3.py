@@ -1,5 +1,4 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 
 import rospy
 import actionlib
@@ -30,31 +29,29 @@ import time
 # is a "quaternion" defining an orientation. Quaternions are a different
 # mathematical represetnation for "euler angles", yaw, pitch and roll.
 
-waypoints = [[(1.4231, -1.451, 0.0), (0.0, 0.0, 0.3189, -0.947783)],
-            [(-0.368,  -0.004, 0.0), (0.0, 0.0, -0.56205,  -0.82719)],
-            [(-1.31, -0.3, 0.0), (-0.00158, 0.0,  0.9854, -0.1698)],
-            [(0.597, 1.37, 0.0), (0.0, 0.0011, -0.66712, 0.7449)],
-            [(-0.06, 1.79, 0.0), (0.0, 0.0,  0.9334,  0.3586)]]
+waypoints = [[(-1.535, 0.23, 0.0), (0.0, 0.0, -0.8439, 0.536)],
+            [(-0.1, -0.6204, 0.0), (0.0, 0.0, -0.6994, -0.7147)],
+            [(1, -1.8, 0.0), (0.0, 0.0, 0, 1)],
+            [(1.33, 1.2, 0.0), (0.0, 0.00, -0.897, 0.441)],
+            [(0.25, 1.88, 0.0), (0.0, 0.0, -0.9884, -0.1518)]]
 
 
 class search_and_beacon(object):
 
     def __init__(self):
-        rospy.init_node('detect_colour')
+        rospy.init_node('search_and_beacon')
         self.ctrl_c = False
         rospy.on_shutdown(self.shutdown_ops)
         self.mb_client = actionlib.SimpleActionClient('move_base',
                 MoveBaseAction)
         self.mb_pub = rospy.Publisher('/initialpose',
                 PoseWithCovarianceStamped, queue_size=10)
-        self.vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.base_image_path = '/home/student/myrosdata/week6_images'
         self.camera_subscriber = \
             rospy.Subscriber('/camera/rgb/image_raw', Image,
                              self.camera_callback)
         self.scan_sub = rospy.Subscriber('/scan', LaserScan, self.laser_callback)
         self.odom_sub = rospy.Subscriber('/odom',  Odometry, self.odom_callback)
-        self.vel = Twist()
 
         self.cvbridge_interface = CvBridge()
         self.robot_controller = MoveTB3()
@@ -64,6 +61,8 @@ class search_and_beacon(object):
         self.turn_vel_fast = -0.5
         self.turn_vel_slow = -0.1
         self.robot_controller.set_move_cmd(0.0, self.turn_vel_fast)
+        self.front_distance =1
+        self.front_angle = 0
 
         self.move_rate = ''  # fast, slow or stop
         self.rate = rospy.Rate(5)
@@ -83,9 +82,9 @@ class search_and_beacon(object):
         self.colours = {
             'Red': ([0, 185, 100], [10, 255, 255]),
             'Yellow': ([25, 210, 100], [32, 255, 255]),
-            'Green': ([25, 205, 100], [70, 255, 255]),
-            'Turquoise': ([80, 150, 100], [100, 255, 255]),
-            'Blue': ([115, 224, 100], [130, 255, 255]),
+            'Green': ([25, 150, 100], [70, 255, 255]),
+            'Turquoise': ([80, 50, 100], [100, 255, 255]),
+            'Blue': ([115, 50, 100], [130, 255, 255]),
             'Purple': ([140, 160, 100], [160, 255, 255]),
             }
 
@@ -96,6 +95,7 @@ class search_and_beacon(object):
 
     def laser_callback(self,scan_data):
         # front obstacles, 20 degrees (10 left, 10 right)
+        
         front_left_arc = scan_data.ranges[0:10]
         front_right_arc = scan_data.ranges[-10:]
         front_arc = np.array(front_left_arc[::-1] + front_right_arc[::-1])
@@ -146,7 +146,7 @@ class search_and_beacon(object):
 
         (height, width, channels) = cv_img.shape
         crop_width = width - 300
-        crop_height = 300
+        crop_height = 250
         crop_x = int(width / 2 - crop_width / 2)
         crop_y = int(height / 2 - crop_height / 2)
 
@@ -171,7 +171,7 @@ class search_and_beacon(object):
         cv2.waitKey(1)
 
     def get_colour(self):
-        self.rotate(90, 0.3)
+        self.rotate(120, 0.3)
         for (colour, (lower, upper)) in self.colours.items():
             lower_bound = np.array(lower)
             upper_bound = np.array(upper)
@@ -180,8 +180,8 @@ class search_and_beacon(object):
                 self.target_colour = colour
                 self.lower_bound = lower_bound
                 self.upper_bound = upper_bound
-                self.rotate(90, -0.3)
                 print 'SEARCH INITIATED: The target colour is {}'.format(self.target_colour)
+                self.rotate(120, -0.3)
                 return
 
     def rotate(self, deg, speed):
@@ -199,7 +199,7 @@ class search_and_beacon(object):
             if self.cy >= 560 - 100 and self.cy <= 560 + 100:
                 if self.move_rate == 'slow':
                     self.move_rate = 'stop'
-                    print 'SEARCH COMPLETE: The robot is now facing the target pillar.'
+                    print("BEACON DETECTED: Beaconing initiated.")    
                     self.find_target = True
                 else:
                     self.move_rate = 'slow'
@@ -224,14 +224,15 @@ class search_and_beacon(object):
             self.rate.sleep()
 
     def move_towards(self):
-        self.robot_controller.set_move_cmd(0.0, 0.0)
-        while self.front_distance > 0.2:
-            print(self.front_distance)
+        while self.front_distance > 0.3:
             self.robot_controller.set_move_cmd(0.2, 0.0)
+            self.robot_controller.publish()
+        self.robot_controller.set_move_cmd(0.0, 0.0)
+        self.robot_controller.publish()
 
     def main(self):
         self.mb_client.wait_for_server()
-        rospy.sleep(5)
+        rospy.sleep(3)
         self.set_initial_pose()
         self.get_colour()
         while not self.ctrl_c and (self.find_target == False):
@@ -242,14 +243,9 @@ class search_and_beacon(object):
                 for i in range(100):
                     # rospy.sleep(5)
                     self.check_colour()
-               
-                print(self.find_target)
                 if self.find_target == True:
                     break    
-        # while self.front_distance > 0.25:
-        print(self.front_distance)
-        self.robot_controller.set_move_cmd(0.2, 0.0)
-        print("BEACON DETECTED: Beaconing initiated.")
+        self.move_towards()
         print("BEACONING COMPLETE: The robot has now stopped.")
             
 
