@@ -22,6 +22,8 @@ STATES = ["Stage 1", "Stage 2"]
 class task4:
     
     def __init__(self):
+
+        self.goal_reached
         
         self.stage_flag = False
         self.state = STATES[0]
@@ -143,6 +145,7 @@ class task4:
                     self.mb_client.send_goal(the_goal)
                     self.mb_client.wait_for_result()
                     self.timeout(rospy.get_time(), True)
+                    break
 
             elif self.state == STATES[0]:
                 self.start = rospy.get_time()
