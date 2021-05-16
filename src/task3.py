@@ -7,7 +7,8 @@ import actionlib
 # Import all the necessary ROS message types:
 from sensor_msgs.msg import Image, LaserScan
 from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
-from geometry_msgs.msg import PoseWithCovarianceStamped
+from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
+from nav_msgs.msg import Odometry
 from tf.transformations import quaternion_from_euler
 
 # Import some image processing modules:
@@ -16,7 +17,6 @@ import cv2
 from cv_bridge import CvBridge
 
 # Import some other modules from within this package
-
 from move_tb3 import MoveTB3
 from tb3_odometry import TB3Odometry
 import math
@@ -30,13 +30,11 @@ import time
 # is a "quaternion" defining an orientation. Quaternions are a different
 # mathematical represetnation for "euler angles", yaw, pitch and roll.
 
-waypoints = [[(0.25, 1.4, 0.0), (0.0, 0.0, 0.45269, -0.8916)]]
-
-# [[(1, -1.5, 0.0), (0.0, 0.0, -0.2923, 0.9563)],
-#             [(0, -0.7, 0.0), (0.0, 0.0, 0.7300, 0.68339)],
-#             [(-1, -0.4, 0.0), (0.0, 0.0, -0.99967,  0.0255)],
-#             [(0.25, 1.4, 0.0), (0.0, 0.0, 0.45269, -0.8916)],
-#             [(0.5, 1.88, 0.0), (0.0, 0.0, -0.98216, -0.1880)]]
+waypoints = [[(1.4231, -1.451, 0.0), (0.0, 0.0, 0.3189, -0.947783)],
+            [(-0.368,  -0.004, 0.0), (0.0, 0.0, -0.56205,  -0.82719)],
+            [(-1.31, -0.3, 0.0), (-0.00158, 0.0,  0.9854, -0.1698)],
+            [(0.597, 1.37, 0.0), (0.0, 0.0011, -0.66712, 0.7449)],
+            [(-0.06, 1.79, 0.0), (0.0, 0.0,  0.9334,  0.3586)]]
 
 
 class search_and_beacon(object):
@@ -49,11 +47,14 @@ class search_and_beacon(object):
                 MoveBaseAction)
         self.mb_pub = rospy.Publisher('/initialpose',
                 PoseWithCovarianceStamped, queue_size=10)
+        self.vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
         self.base_image_path = '/home/student/myrosdata/week6_images'
         self.camera_subscriber = \
             rospy.Subscriber('/camera/rgb/image_raw', Image,
                              self.camera_callback)
-        self.scanSub = rospy.Subscriber('/scan', LaserScan, self.laser_callback)
+        self.scan_sub = rospy.Subscriber('/scan', LaserScan, self.laser_callback)
+        self.odom_sub = rospy.Subscriber('/odom',  Odometry, self.odom_callback)
+        self.vel = Twist()
 
         self.cvbridge_interface = CvBridge()
         self.robot_controller = MoveTB3()
@@ -102,18 +103,27 @@ class search_and_beacon(object):
         # Set distance and bearing of closest obstacle in front of bot
         self.front_distance = front_arc.min()
         self.front_angle = front_arc_angle[np.argmin(front_arc)]
+   
+    def odom_callback(self, topic_data):            
+        self.ori_x = topic_data.pose.pose.orientation.x
+        self.ori_y = topic_data.pose.pose.orientation.y
+        self.ori_z = topic_data.pose.pose.orientation.z
+        self.ori_w = topic_data.pose.pose.orientation.w
 
+        self.pos_x = topic_data.pose.pose.position.x
+        self.pos_y = topic_data.pose.pose.position.y
+        self.pos_z = topic_data.pose.pose.position.z
+        
     # Set 2D Pose Estimate
     def set_initial_pose(self):
         checkpoint = PoseWithCovarianceStamped()
-        checkpoint.pose.pose.position.x = -2.06729
-        checkpoint.pose.pose.position.y = -1.97396
+        checkpoint.pose.pose.position.x = self.pos_x
+        checkpoint.pose.pose.position.y = self.pos_y
         checkpoint.pose.pose.position.z = 0.0
-        [x, y, z, w] = quaternion_from_euler(0.0, 0.0, 1.571)
-        checkpoint.pose.pose.orientation.x = x
-        checkpoint.pose.pose.orientation.y = y
-        checkpoint.pose.pose.orientation.z = z
-        checkpoint.pose.pose.orientation.w = w
+        checkpoint.pose.pose.orientation.x = self.ori_x
+        checkpoint.pose.pose.orientation.y = self.ori_y 
+        checkpoint.pose.pose.orientation.z = self.ori_z 
+        checkpoint.pose.pose.orientation.w = self.ori_w
         self.mb_pub.publish(checkpoint)
 
     def go_to_waypoint(self, pose):
@@ -135,8 +145,8 @@ class search_and_beacon(object):
             print e
 
         (height, width, channels) = cv_img.shape
-        crop_width = width - 800
-        crop_height = 200
+        crop_width = width - 300
+        crop_height = 300
         crop_x = int(width / 2 - crop_width / 2)
         crop_y = int(height / 2 - crop_height / 2)
 
@@ -214,26 +224,34 @@ class search_and_beacon(object):
             self.rate.sleep()
 
     def move_towards(self):
-        while self.front_distance > 0.3:
+        self.robot_controller.set_move_cmd(0.0, 0.0)
+        while self.front_distance > 0.2:
+            print(self.front_distance)
             self.robot_controller.set_move_cmd(0.2, 0.0)
-        print("stopped")
 
     def main(self):
         self.mb_client.wait_for_server()
+        rospy.sleep(5)
         self.set_initial_pose()
         self.get_colour()
         while not self.ctrl_c and (self.find_target == False):
             for pose in waypoints:
                 goal = self.go_to_waypoint(pose)
-                print("next waypoint")
                 self.mb_client.send_goal(goal)
                 self.mb_client.wait_for_result()
-                self.check_colour()
+                for i in range(100):
+                    # rospy.sleep(5)
+                    self.check_colour()
+               
                 print(self.find_target)
                 if self.find_target == True:
                     break    
+        # while self.front_distance > 0.25:
+        print(self.front_distance)
+        self.robot_controller.set_move_cmd(0.2, 0.0)
+        print("BEACON DETECTED: Beaconing initiated.")
+        print("BEACONING COMPLETE: The robot has now stopped.")
             
-        print("ending")
 
 if __name__ == '__main__':
     search_ob = search_and_beacon()
