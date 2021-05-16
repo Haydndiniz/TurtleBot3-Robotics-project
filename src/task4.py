@@ -17,13 +17,11 @@ waypoints = [[(-1.16, 2.13, 0.0), (0.0, 0.0, -0.0438, 0.999)],
              [(1.90040443106, 1.94064598664, 0.0), (0.0, 0.0, -0.999993175507, 0.00333086304911)] 
             ]
 
-STATES = ["Stage 1", "Stage 2"]
+STATES = ["Stage 1", "Stage 2", "Goal Reached"]
 
 class task4:
     
     def __init__(self):
-
-        self.goal_reached
         
         self.stage_flag = False
         self.state = STATES[0]
@@ -120,15 +118,9 @@ class task4:
         self.goal_pose.target_pose.pose.orientation.w = pose[1][3]
         return self.goal_pose
 
-    def timeout(self, initial_time, cancel):
-        self.start_timeout = initial_time
-        while not cancel:
-            if self.start_timeout >= 10:
-                return True
-
     def main_loop(self):
         while not self.ctrl_c:
-            if self.pos_x >= -1.46 and self.pos_y >= 0.89 and self.stage_flag == False:
+            if self.pos_y >= 0.89 and self.stage_flag == False:
                 print("Changing to stage 2...")
                 self.stage_flag = True
                 self.move.linear.x = 0
@@ -143,9 +135,10 @@ class task4:
                     the_goal = self.go_to_waypoint(pose)
                     print("Going for goal: ", the_goal)
                     self.mb_client.send_goal(the_goal)
-                    self.mb_client.wait_for_result()
-                    self.timeout(rospy.get_time(), True)
-                    break
+                    self.mb_client.wait_for_result(rospy.Duration.from_sec(10.0))
+                print("Goal reached!")
+                self.ctrl_c = True
+
 
             elif self.state == STATES[0]:
                 self.start = rospy.get_time()
@@ -175,18 +168,18 @@ class task4:
 
                 self.pub.publish(self.move)
 
-                if self.min_distance_front <= 0.4:
+                if self.min_distance_front <= 0.45:
                     self.move.linear.x = 0.05
                     self.move.angular.z = 0
                     self.pub.publish(self.move)
                     if self.distance_left > self.distance_right:
-                        while self.min_distance_front <= 0.4:
+                        while self.min_distance_front <= 0.45:
                             self.move.angular.z = 0.6
                             self.pub.publish(self.move)
                         self.move.angular.z = 0
                         self.pub.publish(self.move)
                     elif self.distance_right > self.distance_left:
-                        while self.min_distance_front <= 0.4:
+                        while self.min_distance_front <= 0.45:
                             self.move.angular.z = -0.6
                             self.pub.publish(self.move)
                         self.move.angular.z = 0
