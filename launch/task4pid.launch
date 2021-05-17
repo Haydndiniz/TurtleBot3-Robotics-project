@@ -1,4 +1,0 @@
-<launch>
-   <node pkg="team25" type="task4pid.py" name="task4pid_node"  output="screen">
-   </node>
-</launch>

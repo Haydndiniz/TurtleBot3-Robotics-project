@@ -13,8 +13,10 @@ from nav_msgs.msg import Odometry
 from move_tb3 import MoveTB3
 from tb3_odometry import TB3Odometry
 
-waypoints = [[(-1.16, 2.13, 0.0), (0.0, 0.0, -0.0438, 0.999)],
-             [(1.90040443106, 1.94064598664, 0.0), (0.0, 0.0, -0.999993175507, 0.00333086304911)] 
+waypoints = [[(1.09, 2.05, 0.0), (0.0, 0.0, -0.0197, -0.9998)],
+             [(0.684, -1.487, 0.0), (0.0, 0.0,-0.002, 0.999)],
+             [(1.62, 0.436, 0.0), (0.0, 0.0, 0.999, -0.010)],          
+             [(1.900, 1.940, 0.0), (0.0, 0.0, -0.999, 0.0033)] 
             ]
 
 STATES = ["Stage 1", "Stage 2", "Goal Reached"]
@@ -56,7 +58,7 @@ class task4:
 
         rospy.init_node('task4_node')
 
-        self.rate = rospy.Rate(20)
+        self.rate = rospy.Rate(50)
 
         self.ctrl_c = False
         rospy.on_shutdown(self.shutdownhook)
@@ -77,8 +79,8 @@ class task4:
 
     def callback(self, dt):
         scan_data = np.array(dt.ranges)
-        arc_distance_left = scan_data[70:110]
-        arc_distance_right = scan_data[250:290]
+        arc_distance_left = scan_data[75:105]
+        arc_distance_right = scan_data[255:285]
         arc_front_left = scan_data[:30]
         arc_front_right = scan_data[330:]
         front_arc = np.concatenate((arc_front_right, arc_front_left))
@@ -120,7 +122,7 @@ class task4:
 
     def main_loop(self):
         while not self.ctrl_c:
-            if self.pos_y >= 0.89 and self.stage_flag == False:
+            if self.pos_y >= 0.8 and self.stage_flag == False:
                 print("Changing to stage 2...")
                 self.stage_flag = True
                 self.move.linear.x = 0
@@ -129,11 +131,13 @@ class task4:
                 self.state = STATES[1]
 
             if self.state == STATES[1] and self.stage_flag == True:
+                self.move.angular.z= 0
+                self.move.linear.x = 0
+                rospy.sleep(1)
                 self.mb_client.wait_for_server()
                 self.set_initial_pose()
                 for pose in waypoints:
                     the_goal = self.go_to_waypoint(pose)
-                    print("Going for goal: ", the_goal)
                     self.mb_client.send_goal(the_goal)
                     self.mb_client.wait_for_result(rospy.Duration.from_sec(10.0))
                 print("Goal reached!")
@@ -144,12 +148,6 @@ class task4:
                 self.start = rospy.get_time()
 
                 self.error = self.distance_right - 0.3
-
-                self.lerror = self.min_distance_front - 0.2
-
-                #self.integral = self.integral + self.error
-
-                #self.derivative = self.error - self.last_error
 
                 if self.kp*self.error <= 0.6:
                     self.move.angular.z = self.kp*self.error
@@ -169,6 +167,7 @@ class task4:
                 self.pub.publish(self.move)
 
                 if self.min_distance_front <= 0.45:
+                    print("turning")
                     self.move.linear.x = 0.05
                     self.move.angular.z = 0
                     self.pub.publish(self.move)

@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+# referenced from ROS A PRACTICAL INTRODUCTION TO THE ROBOT OPERATING SYSTEM
 import rospy
 import actionlib
 
@@ -23,11 +24,6 @@ from math import sqrt, pow, pi
 import numpy as np
 import time
 
-# You need to know the coordinates that the map you are working
-# in is. I experimented with these numbers and the turtlebot3_stage_4
-# map from Turtlebot3. The first array is x,y,z location. The second one
-# is a "quaternion" defining an orientation. Quaternions are a different
-# mathematical represetnation for "euler angles", yaw, pitch and roll.
 
 waypoints = [[(-1.535, 0.23, 0.0), (0.0, 0.0, -0.8439, 0.536)],
             [(-0.1, -0.6204, 0.0), (0.0, 0.0, -0.6994, -0.7147)],
