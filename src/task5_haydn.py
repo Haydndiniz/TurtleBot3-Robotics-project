@@ -13,18 +13,15 @@ from nav_msgs.msg import Odometry
 from move_tb3 import MoveTB3
 from tb3_odometry import TB3Odometry
 
-waypoints = [[(1.09, 2.05, 0.0), (0.0, 0.0, -0.0197, -0.9998)],
-             [(0.684, -1.487, 0.0), (0.0, 0.0,-0.002, 0.999)],
-             [(1.62, 0.436, 0.0), (0.0, 0.0, 0.999, -0.010)],          
-             [(1.900, 1.940, 0.0), (0.0, 0.0, -0.999, 0.0033)] 
-            ]
+from task5_helper import search_and_beacon
 
 STATES = ["Stage 1", "Stage 2", "Goal Reached"]
 
-class task4:
+class task5:
     
     def __init__(self):
-        rospy.init_node('task5_node')
+        # rospy.init_node('task5_node')
+        self.robot_colour = search_and_beacon()
 
         
         self.stage_flag = False
@@ -78,7 +75,7 @@ class task4:
         self.ctrl_c = False
         rospy.on_shutdown(self.shutdownhook)
 
-        rospy.loginfo("the task4 node has been initialised...")
+        rospy.loginfo("the task5 node has been initialised...")
 
     def shutdownhook(self):
         self.shutdown_function()
@@ -144,54 +141,37 @@ class task4:
         self.pos_y = topic_data.pose.pose.position.y
         self.pos_z = topic_data.pose.pose.position.z
 
-    def set_initial_pose(self):
-        checkpoint = PoseWithCovarianceStamped()
-        checkpoint.pose.pose.position.x = self.pos_x
-        checkpoint.pose.pose.position.y = self.pos_y
-        checkpoint.pose.pose.position.z = 0.0
-        checkpoint.pose.pose.orientation.x = self.ori_x
-        checkpoint.pose.pose.orientation.y = self.ori_y
-        checkpoint.pose.pose.orientation.z = self.ori_z
-        checkpoint.pose.pose.orientation.w = self.ori_w
-        self.mb_pub.publish(checkpoint)
-
-    def go_to_waypoint(self, pose):
-        self.goal_pose.target_pose.header.frame_id = 'map'
-        self.goal_pose.target_pose.pose.position.x = pose[0][0]
-        self.goal_pose.target_pose.pose.position.y = pose[0][1]
-        self.goal_pose.target_pose.pose.position.z = pose[0][2]
-        self.goal_pose.target_pose.pose.orientation.x = pose[1][0]
-        self.goal_pose.target_pose.pose.orientation.y = pose[1][1]
-        self.goal_pose.target_pose.pose.orientation.z = pose[1][2]
-        self.goal_pose.target_pose.pose.orientation.w = pose[1][3]
-        return self.goal_pose
 
     def wall_follow(self, distance):
-        if self.front_distance > distance and self.right_distance > distance:
-            self.robot_controller.set_move_cmd(0.2, -0.8)
+        
+        if self.front_distance > distance and self.right_distance > distance-0.05 and self.right_distance < distance+0.03:
+            self.robot_controller.set_move_cmd(0.3,0)
+            self.robot_controller.publish()
+        elif self.front_distance > distance and self.right_distance > distance:
+            self.robot_controller.set_move_cmd(0.24, -0.8)
             self.robot_controller.publish()
         elif self.front_distance < distance and self.right_distance > distance:
-            self.robot_controller.set_move_cmd(0, -0.5)
+            self.robot_controller.set_move_cmd(0, -0.6)
             self.robot_controller.publish()
         elif self.front_distance > distance and self.right_distance < distance:
-            self.robot_controller.set_move_cmd(0.1, 0.5)
+            self.robot_controller.set_move_cmd(0.15, 0.5)
             self.robot_controller.publish()
         elif self.front_distance < distance and self.right_distance < distance:
-            self.robot_controller.set_move_cmd(0, 0.5)
+            self.robot_controller.set_move_cmd(0, 0.6)
             self.robot_controller.publish()
         else:
             self.robot_controller.set_move_cmd(0, -0.5)
             self.robot_controller.publish()
 
     def main_loop(self):
+        self.robot_colour.get_colour()
         while not self.ctrl_c:
-            self.wall_follow(0.33)
+            self.wall_follow(0.35)
 
-           
             self.rate.sleep()
 
 if __name__ == '__main__':
-    task4_instance = task4()
+    task4_instance = task5()
     try:
         task4_instance.main_loop()
     except rospy.ROSInterruptException:
