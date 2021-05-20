@@ -21,13 +21,14 @@ class task4:
         self.distance_left = 0
         self.distance_right = 0
         self.min_distance_front = 0
+        self.front_right_corner = 0
 
         self.pub = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
         self.sub = rospy.Subscriber("/scan", LaserScan, self.callback)
 
-        rospy.init_node('task4_node')
+        rospy.init_node('task4pid_node')
 
-        self.rate = rospy.Rate(20)
+        self.rate = rospy.Rate(30)
 
         self.ctrl_c = False
         rospy.on_shutdown(self.shutdownhook)
@@ -52,57 +53,80 @@ class task4:
         arc_distance_right = scan_data[250:290]
         arc_front_left = scan_data[:30]
         arc_front_right = scan_data[330:]
+        arc_front_right_corner = scan_data[315:325]
         front_arc = np.concatenate((arc_front_right, arc_front_left))
         self.min_distance_front = front_arc.min()
         self.distance_left = arc_distance_left.min()
         self.distance_right = arc_distance_right.min()
+        self.front_right_corner = arc_front_right_corner.min()
 
     def main_loop(self):
         while not self.ctrl_c:
 
-            self.start = rospy.get_time()
+            while self.min_distance_front > 0.4:
 
-            self.error = self.distance_right - 0.3
+                self.start = rospy.get_time()
 
-            self.lerror = self.min_distance_front - 0.2
+                self.error = self.distance_right - 0.3
 
-            #self.integral = self.integral + self.error
+                if self.kp*self.error <= 0.6:
+                    self.move.angular.z = self.kp*self.error
+                elif self.kp*self.error >= -0.6:
+                    self.move.angular.z = self.kp*self.error
+                elif self.kp*self.error > 0.6:
+                    self.move.angular.z = 0.6
+                elif self.kp*self.error < -0.6:
+                    self.move.angular.z = -0.6
 
-            #self.derivative = self.error - self.last_error
+                self.move.linear.x = self.linear_vel
+                self.last_error = self.error
 
-            if self.kp*self.error <= 0.6:
-                self.move.angular.z = self.kp*self.error
-            elif self.kp*self.error >= -0.6:
-                self.move.angular.z = self.kp*self.error
-            elif self.kp*self.error > 0.6:
-                self.move.angular.z = 0.6
-            elif self.kp*self.error < -0.6:
-                self.move.angular.z = -0.6
+                self.end = rospy.get_time()
+                self.dt = self.start - self.end
 
-            self.move.linear.x = self.linear_vel
-            self.last_error = self.error
-
-            self.end = rospy.get_time()
-            self.dt = self.start - self.end
-
-            self.pub.publish(self.move)
+                self.pub.publish(self.move)
 
             if self.min_distance_front <= 0.4:
-                self.move.linear.x = 0.05
-                self.move.angular.z = 0
-                self.pub.publish(self.move)
-                if self.distance_left > self.distance_right:
-                    while self.min_distance_front <= 0.4:
+                if self.front_right_corner > 0.4:
+                    print("corner piding")
+
+                    self.start = rospy.get_time()
+
+                    self.error = self.distance_right - 0.2
+
+                    if self.kp*self.error <= 0.6:
+                        self.move.angular.z = self.kp*self.error
+                    elif self.kp*self.error >= -0.6:
+                        self.move.angular.z = self.kp*self.error
+                    elif self.kp*self.error > 0.6:
                         self.move.angular.z = 0.6
-                        self.pub.publish(self.move)
-                    self.move.angular.z = 0
-                    self.pub.publish(self.move)
-                elif self.distance_right > self.distance_left:
-                    while self.min_distance_front <= 0.4:
+                    elif self.kp*self.error < -0.6:
                         self.move.angular.z = -0.6
-                        self.pub.publish(self.move)
+
+                    self.move.linear.x = self.linear_vel
+                    self.last_error = self.error
+
+                    self.end = rospy.get_time()
+                    self.dt = self.start - self.end
+
+                else:
+                    self.pub.publish(self.move)
+                    self.move.linear.x = 0.05
                     self.move.angular.z = 0
                     self.pub.publish(self.move)
+
+                    if self.distance_left > self.distance_right:
+                        while self.min_distance_front <= 0.4:
+                            self.move.angular.z = 0.6
+                            self.pub.publish(self.move)
+                        self.move.angular.z = 0
+                        self.pub.publish(self.move)
+                    elif self.distance_right > self.distance_left:
+                        while self.min_distance_front <= 0.4:
+                            self.move.angular.z = -0.6
+                            self.pub.publish(self.move)
+                        self.move.angular.z = 0
+                        self.pub.publish(self.move)
 
             self.rate.sleep()
 

@@ -120,7 +120,7 @@ class ActionServer(object):
 
     def collision_detect(self, min_d_side):
         global goal_accomplished
-        if self.front_round_distance <= min_d_side or self.back_round_distance <= min_d_side:
+        """if self.front_round_distance <= min_d_side or self.back_round_distance <= min_d_side:
             self.robot_controller.stop()
             success = False
             goal_accomplished = False
@@ -128,7 +128,7 @@ class ActionServer(object):
             print("---------------------------------Collision detected")
             rospy.loginfo('Cancelling the move.')
             self.actionserver.set_preempted()
-            sys.exit()
+            sys.exit()"""
 
     def move(self, lin_v, ang_v):
         
