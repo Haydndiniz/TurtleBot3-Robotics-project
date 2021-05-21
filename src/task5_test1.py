@@ -225,7 +225,7 @@ class task5:
             self.robot_controller.publish()
 
     def check_colour(self):
-        if self.m00 > self.m00_min and self.check_spawn() == False:           
+        if self.robot_colour.m00 > self.robot_colour.m00_min and self.safe_to_check_colour() == False:           
             if self.cy >= 560-100 and self.cy <= 560+100:
                 if self.move_rate == 'slow':
                     self.move_rate = 'stop'                             
@@ -239,30 +239,28 @@ class task5:
             if 0 < self.cy and self.cy <= 560-100:
                 self.robot_controller.set_move_cmd(0.1, 0.25)
                 self.robot_controller.publish()
-                #print "Adjust left"
             elif self.cy > 560+100:
                 self.robot_controller.set_move_cmd(0.1, -0.25)
                 self.robot_controller.publish()
-                #print "Adjust right"
         elif self.move_rate == 'stop' and self.safe_to_check_colour() == True:
             if self.close_front_distance < 0.5 and self.safe_to_check_colour() == True:
-                #print "enter zone"
                 self.robot_controller.set_move_cmd(0.1, 0.0)
                 self.robot_controller.publish()
                 time.sleep(2)
                 self.robot_controller.stop()
                 print "BEACONING COMPLETE: The robot has now stopped."
                 self.beacon_detected = True
-                break
             else:
-                self.avoid_object()  
-                #print "moving towards beacon"                           
-        elif self.check_spawn() == False:
-            self.wall_follow(0.35) 
-                    
+                self.object_avoidance()  
+        elif self.safe_to_check_colour() == False:
+            self.wall_follow(0.35)                 
         self.robot_controller.publish()
+
     def main_loop(self):
+        print("start time: ", time.time())
+        self.robot_colour.rotate(90, 1)
         self.robot_colour.get_colour()
+        self.robot_colour.rotate(90, -1)      
         while not self.ctrl_c:
             if self.robot_colour.m00 > self.robot_colour.m00_min and self.safe_to_check_colour(): 
                 if self.beacon_detected == False:                    
@@ -273,13 +271,9 @@ class task5:
                     break
             else:
                 self.wall_follow(0.35)
-            # self.wall_follow(0.35)
-            # if self.safe_to_check_colour():
-            #     self.beacon_detected = self.robot_colour.check_colour()
-            # if self.beacon_detected:
-            #     self.robot_colour.move_towards()
-
+   
             self.rate.sleep()
+        print("end time: ", time.time())
 
 if __name__ == '__main__':
     task4_instance = task5()
