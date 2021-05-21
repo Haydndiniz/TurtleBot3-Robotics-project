@@ -146,7 +146,7 @@ class search_and_beacon(object):
         crop_x = int(width / 2 - crop_width / 2)
         crop_y = int(height / 2 - crop_height / 2)
 
-        crop_img = cv_img[crop_y:crop_y + crop_height, crop_x:crop_x
+        crop_img = cv_img[crop_y:height/2, crop_x:crop_x
                           + crop_width]
         hsv_img = cv2.cvtColor(crop_img, cv2.COLOR_BGR2HSV)
         self.hsv_img = hsv_img
@@ -193,17 +193,15 @@ class search_and_beacon(object):
         if self.m00 > self.m00_min and self.find_target == False:
             # blob detected
             if self.cy >= 560 - 100 and self.cy <= 560 + 100:
-                if self.move_rate == 'slow':
-                    self.move_rate = 'stop'
-                    print("BEACON DETECTED: Beaconing initiated.")    
-                    self.find_target = True
-                    return True
-                else:
-                    self.move_rate = 'slow'
-            elif self.find_target == True:
-                self.robot_controller.stop()
-            else:
-                self.move_rate = 'fast'
+                print("BEACON DETECTED: Beaconing initiated.")    
+                self.find_target = True
+                return True
+                #else:
+                    #self.move_rate = 'slow'
+            #elif self.find_target == True:
+                #self.robot_controller.stop()
+            #else:
+                #self.move_rate = 'fast'
 
             if self.find_target == False:
                 """"if self.move_rate == 'fast':
@@ -218,12 +216,12 @@ class search_and_beacon(object):
                     self.robot_controller.set_move_cmd(0.0,
                             self.turn_vel_slow)"""
                 pass
-            self.robot_controller.publish()
+            #self.robot_controller.publish()
             self.rate.sleep()
             return False
 
     def move_towards(self):
-        while self.front_distance > 0.3:
+        while self.front_distance > 0.3 and not self.cy >= 560 - 100 and not self.cy <= 560 + 100:
             self.robot_controller.set_move_cmd(0.2, 0.0)
             self.robot_controller.publish()
         self.robot_controller.set_move_cmd(0.0, 0.0)

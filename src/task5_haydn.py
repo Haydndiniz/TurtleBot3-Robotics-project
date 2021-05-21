@@ -13,7 +13,11 @@ from nav_msgs.msg import Odometry
 from move_tb3 import MoveTB3
 from tb3_odometry import TB3Odometry
 
+from com2009_actions.msg import SearchGoal
+
 from task5_helper import search_and_beacon
+
+from action_server import ActionServer
 
 import math
 
@@ -24,6 +28,12 @@ class task5:
     def __init__(self):
         # rospy.init_node('task5_node')
         self.robot_colour = search_and_beacon()
+        self.avoidance_behaviour = ActionServer()
+
+        self.goal = SearchGoal()
+        self.goal.fwd_velocity = 0.2
+
+        self.goal.approach_distance = 0.4
 
         
         self.stage_flag = False
@@ -181,10 +191,13 @@ class task5:
     def main_loop(self):
         self.robot_colour.get_colour()
         while not self.ctrl_c:
-            self.wall_follow(0.35)
+            if not self.beacon_detected:
+                self.wall_follow(0.35)
             if self.safe_to_check_colour():
                 self.beacon_detected = self.robot_colour.check_colour()
             if self.beacon_detected:
+                print("moving towards target")
+                self.avoidance_behaviour.action_server_launcher(self.goal)
                 self.robot_colour.move_towards()
 
             self.rate.sleep()
