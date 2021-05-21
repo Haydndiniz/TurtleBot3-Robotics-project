@@ -15,6 +15,8 @@ from tb3_odometry import TB3Odometry
 
 from task5_helper import search_and_beacon
 
+import math
+
 STATES = ["Stage 1", "Stage 2", "Goal Reached"]
 
 class task5:
@@ -25,6 +27,8 @@ class task5:
 
         
         self.stage_flag = False
+        self.initial_odom_callback = True
+        self.beacon_detected = False
         self.state = STATES[0]
         self.kp = 0.6
         self.kpl = 0.4
@@ -141,6 +145,17 @@ class task5:
         self.pos_y = topic_data.pose.pose.position.y
         self.pos_z = topic_data.pose.pose.position.z
 
+        if self.initial_odom_callback:
+            self.initial_pos_x = self.pos_x
+            self.initial_pos_y = self.pos_y
+            self.initial_odom_callback = False
+
+    def safe_to_check_colour(self):
+        self.displacement = math.sqrt((self.pos_x - self.initial_pos_x)**2 + (self.pos_y - self.initial_pos_y)**2)
+        if self.displacement > 1.6:
+            return True
+        else:
+            return False
 
     def wall_follow(self, distance):
         
@@ -167,6 +182,10 @@ class task5:
         self.robot_colour.get_colour()
         while not self.ctrl_c:
             self.wall_follow(0.35)
+            if self.safe_to_check_colour():
+                self.beacon_detected = self.robot_colour.check_colour()
+            if self.beacon_detected:
+                self.robot_colour.move_towards()
 
             self.rate.sleep()
 

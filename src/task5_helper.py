@@ -61,7 +61,7 @@ class search_and_beacon(object):
         self.front_angle = 0
 
         self.move_rate = ''  # fast, slow or stop
-        self.rate = rospy.Rate(5)
+        self.rate = rospy.Rate(50)
         self.m00 = 0
         self.m00_min = 10000
 
@@ -197,6 +197,7 @@ class search_and_beacon(object):
                     self.move_rate = 'stop'
                     print("BEACON DETECTED: Beaconing initiated.")    
                     self.find_target = True
+                    return True
                 else:
                     self.move_rate = 'slow'
             elif self.find_target == True:
@@ -205,7 +206,7 @@ class search_and_beacon(object):
                 self.move_rate = 'fast'
 
             if self.find_target == False:
-                if self.move_rate == 'fast':
+                """"if self.move_rate == 'fast':
                     self.robot_controller.set_move_cmd(0.0,
                             self.turn_vel_fast)
                 elif self.move_rate == 'slow':
@@ -215,9 +216,11 @@ class search_and_beacon(object):
                     self.robot_controller.set_move_cmd(0.0, 0.0)
                 else:
                     self.robot_controller.set_move_cmd(0.0,
-                            self.turn_vel_slow)
+                            self.turn_vel_slow)"""
+                pass
             self.robot_controller.publish()
             self.rate.sleep()
+            return False
 
     def move_towards(self):
         while self.front_distance > 0.3:
