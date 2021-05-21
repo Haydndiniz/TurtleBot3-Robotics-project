@@ -67,6 +67,8 @@ class task5:
         self.small_front_angle = 0
         self.raw_data = []
 
+        self.colour_detected = False
+
         
         rospy.on_shutdown(self.shutdownhook)
         self.mb_client = actionlib.SimpleActionClient('move_base',
@@ -167,6 +169,53 @@ class task5:
         else:
             return False
 
+    def object_avoidance(self, distance):
+        
+        if self.front_distance <= 0.25 or self.left_distance <= 0.25 or self.right_distance <= 0.25:
+            print("avoiding obstacles")
+            self.robot_controller.set_move_cmd(-0.2, 0.1)
+            self.robot_controller.publish()
+        elif self.front_distance > distance and self.left_distance > distance and self.right_distance > distance:
+            self.robot_controller.set_move_cmd(0.2, 0)
+            self.robot_controller.publish()
+        elif self.front_distance < distance and self.left_distance > distance and self.right_distance > distance: 
+            if self.left_distance > self.right_distance:
+                self.robot_controller.stop()
+                self.robot_controller.set_move_cmd(-0.2, 0.4)
+            elif self.left_distance < self.right_distance:
+                self.robot_controller.stop()
+                self.robot_controller.set_move_cmd(-0.2, -0.4)#
+            self.robot_controller.publish()
+        elif self.front_distance > distance and self.left_distance < distance and self.right_distance < distance:
+            self.robot_controller.stop()
+            self.robot_controller.set_move_cmd(0.2, 0)#
+            self.robot_controller.publish()
+        elif self.front_distance > distance and self.left_distance > distance and self.right_distance < distance:
+            self.robot_controller.stop()
+            self.robot_controller.set_move_cmd(0, 0.4)
+            self.robot_controller.publish()
+        elif self.front_distance > distance and self.left_distance < distance and self.right_distance > distance:
+            self.robot_controller.stop()
+            self.robot_controller.set_move_cmd(0, -0.4)
+            self.robot_controller.publish()
+        elif self.front_distance < distance and self.left_distance < distance and self.right_distance > distance:
+            self.robot_controller.stop()
+            self.robot_controller.set_move_cmd(0, -0.4)
+            self.robot_controller.publish()
+        elif self.front_distance < distance and self.left_distance > distance and self.right_distance < distance:
+            self.robot_controller.stop()
+            self.robot_controller.set_move_cmd(0, 0.4)
+            self.robot_controller.publish()
+        elif self.front_distance < distance and self.left_distance < distance and self.right_distance < distance:
+            if self.left_distance > self.right_distance:
+                self.robot_controller.stop()
+                self.robot_controller.set_move_cmd(0, 2)
+                self.robot_controller.publish()
+            elif self.left_distance < self.right_distance:
+                self.robot_controller.stop()
+                self.robot_controller.set_move_cmd(0, -2)
+                self.robot_controller.publish() 
+
     def wall_follow(self, distance):
         
         if self.front_distance > distance and self.right_distance > distance-0.05 and self.right_distance < distance+0.03:
@@ -188,17 +237,67 @@ class task5:
             self.robot_controller.set_move_cmd(0, -0.5)
             self.robot_controller.publish()
 
+    def check_colour(self):
+        
+        if self.robot_colour.m00 > self.robot_colour.m00_min and self.safe_to_check_colour() == False:           
+            if self.cy >= 560-100 and self.cy <= 560+100:
+                self.colour_detected = True
+                if self.move_rate == 'slow':
+                    self.move_rate = 'stop'
+                                          
+            else:
+                self.move_rate = 'slow'
+        else:
+            self.move_rate = 'fast'                
+        if self.move_rate == 'fast':
+            self.wall_follow(0.35)
+        elif self.move_rate == 'slow' and self.safe_to_check_colour() == True:
+            if 0 < self.cy and self.cy <= 560-100:
+                self.robot_controller.set_move_cmd(0.1, 0.25)
+                self.robot_controller.publish()
+            elif self.cy > 560+100:
+                self.robot_controller.set_move_cmd(0.1, -0.25)
+                self.robot_controller.publish()
+        elif self.move_rate == 'stop' and self.safe_to_check_colour() == True:
+            if self.close_front_distance < 0.5 and self.safe_to_check_colour() == True:
+                self.robot_controller.set_move_cmd(0.1, 0.0)
+                self.robot_controller.publish()
+                time.sleep(2)
+                self.robot_controller.stop()
+                print "BEACONING COMPLETE: The robot has now stopped."
+                self.beacon_detected = True
+            else:
+                self.object_avoidance()  
+        elif self.safe_to_check_colour() == False:
+            self.wall_follow(0.35)                 
+        self.robot_controller.publish()
+        if self.colour_detected:
+            return True
+        else:
+            return False
+
     def main_loop(self):
         self.robot_colour.get_colour()
         while not self.ctrl_c:
             if not self.beacon_detected:
                 self.wall_follow(0.35)
             if self.safe_to_check_colour():
-                self.beacon_detected = self.robot_colour.check_colour()
+                if self.check_colour():
+                    self.beacon_detected = True
             if self.beacon_detected:
-                print("moving towards target")
-                self.avoidance_behaviour.action_server_launcher(self.goal)
-                self.robot_colour.move_towards()
+                if self.front_distance > 0.3 and not self.check_colour():
+                    print("Colour not found, searching for colour")
+                    self.object_avoidance(0.4)
+                elif self.front_distance > 0.3 and self.check_colour():
+                    print("BEACON DETECTED: Beaconing initiated.")
+                    self.robot_colour.move_towards()
+                elif self.front_distance <= 0.3 and self.check_colour():
+                    print("Beaconing complete. Stopping robot.")
+                    self.robot_controller.stop()
+                else:
+                    ("Searching for colour")
+                    self.object_avoidance(0.4)
+                
 
             self.rate.sleep()
 
